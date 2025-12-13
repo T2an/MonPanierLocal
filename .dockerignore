@@ -1,0 +1,103 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation (keep only production docs)
+docs/DEVELOPMENT.md
+docs/TESTING.md
+docs/QUICKSTART.md
+docs/ANALYSIS_REPORT.md
+docs/FUNCTIONAL_ANALYSIS.md
+docs/IMPROVEMENTS.md
+BUGFIXES.md
+DOCKER_FIXES.md
+MIGRATION_FIX.md
+FIXES.md
+TEST_RESULTS.md
+CHANGELOG.md
+
+# Development files
+*.md
+!README.md
+!docs/PRODUCTION.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next/
+out/
+.cache/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.py
+*_test.py
+tests/
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+
+# Scripts
+*.sh
+!scripts/
+
+# Docker dev files
+docker-compose.dev.yml
+Dockerfile.dev
+Dockerfile
+!Dockerfile.prod
+
+# Config dev
+Makefile
+pyproject.toml
+pytest.ini
+.flake8
+jest.config.js
+jest.setup.js
+.eslintrc.json
+.prettierrc
+.prettierignore
+
+# Logs
+logs/
+*.log
