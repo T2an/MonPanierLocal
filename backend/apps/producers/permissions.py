@@ -1,4 +1,4 @@
-docfrom rest_framework import permissions
+from rest_framework import permissions
 
 
 class IsProducerOwner(permissions.BasePermission):
