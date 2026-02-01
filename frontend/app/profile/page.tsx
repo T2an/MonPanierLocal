@@ -9,7 +9,7 @@ import { ErrorMessage } from '@/components/ErrorMessage'
 import Link from 'next/link'
 
 export default function ProfilePage() {
-  const { user, loading, refreshUser } = useAuth()
+  const { user, loading, refreshUser, logout } = useAuth()
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({
@@ -252,6 +252,25 @@ export default function ProfilePage() {
             </form>
           </div>
         )}
+      </div>
+
+      {/* Section Déconnexion */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="bg-gray-50 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-gray-700 mb-2">Session</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Vous êtes connecté en tant que <strong>{user.email}</strong>
+          </p>
+          <button
+            onClick={logout}
+            className="px-5 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border-2 border-red-200 hover:border-red-300 rounded-xl font-medium transition-all flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span>Se déconnecter</span>
+          </button>
+        </div>
       </div>
     </div>
   )

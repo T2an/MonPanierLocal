@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 interface Location {
   display_name: string
@@ -33,18 +34,34 @@ export function LocationSearch({
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  // Define updateDropdownPosition first
+  const updateDropdownPosition = useCallback(() => {
+    if (!inputRef.current) return
+    const rect = inputRef.current.getBoundingClientRect()
+    setDropdownRect({
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+    })
+  }, [])
 
   // Debounce pour la recherche
   const searchLocation = useCallback(async (query: string) => {
     if (!query || query.length < 3) {
       setSuggestions([])
+      setShowSuggestions(false)
       return
     }
 
     // Vérifier le cache
     const cacheKey = query.toLowerCase().trim()
     if (geocodeCache.has(cacheKey)) {
-      setSuggestions(geocodeCache.get(cacheKey)!)
+      const cached = geocodeCache.get(cacheKey)!
+      setSuggestions(cached)
+      setShowSuggestions(cached.length > 0)
+      updateDropdownPosition()
       return
     }
 
@@ -91,16 +108,20 @@ export function LocationSearch({
         }
       })
 
-      // Mettre en cache
-      geocodeCache.set(cacheKey, locations)
-      setSuggestions(locations)
+      // Mettre en cache et limiter à 3 résultats
+      const limitedLocations = locations.slice(0, 3)
+      geocodeCache.set(cacheKey, limitedLocations)
+      setSuggestions(limitedLocations)
+      setShowSuggestions(true)
+      updateDropdownPosition()
     } catch (err) {
       setError('Impossible de rechercher cette localisation')
       setSuggestions([])
+      setShowSuggestions(false)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [updateDropdownPosition])
 
   // Gérer le changement de recherche avec debounce
   useEffect(() => {
@@ -109,11 +130,16 @@ export function LocationSearch({
     }
 
     if (searchTerm.trim().length >= 3) {
+      setShowSuggestions(true)
+      updateDropdownPosition()
       searchTimeoutRef.current = setTimeout(() => {
         searchLocation(searchTerm)
       }, 300)
     } else {
       setSuggestions([])
+      if (searchTerm.trim().length === 0) {
+        setShowSuggestions(false)
+      }
     }
 
     return () => {
@@ -121,7 +147,7 @@ export function LocationSearch({
         clearTimeout(searchTimeoutRef.current)
       }
     }
-  }, [searchTerm, searchLocation])
+  }, [searchTerm, searchLocation, updateDropdownPosition])
 
   // Fermer les suggestions en cliquant à l'extérieur
   useEffect(() => {
@@ -141,6 +167,20 @@ export function LocationSearch({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  useEffect(() => {
+    updateDropdownPosition()
+    const handleResize = () => updateDropdownPosition()
+    const handleScroll = () => updateDropdownPosition()
+    
+    window.addEventListener('resize', handleResize)
+    window.addEventListener('scroll', handleScroll, true)
+    
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [updateDropdownPosition, showSuggestions, suggestions])
 
   const handleSelect = (location: Location) => {
     onLocationSelect({
@@ -166,60 +206,88 @@ export function LocationSearch({
     }
   }
 
-  const displayValue = currentLocation?.name || searchTerm || ''
+  const displayValue = searchTerm || (currentLocation?.name || '')
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchTerm.trim().length >= 3) {
+      searchLocation(searchTerm)
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    setError(null)
+    if (value.trim().length >= 3) {
+      setShowSuggestions(true)
+      updateDropdownPosition()
+    } else if (value.trim().length === 0) {
+      setShowSuggestions(false)
+    }
+  }
 
   return (
     <div className="relative w-full">
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type="text"
-          value={displayValue}
-          onChange={(e) => {
-            setSearchTerm(e.target.value)
-            setShowSuggestions(true)
-            setError(null)
-          }}
-          onFocus={() => setShowSuggestions(true)}
-          placeholder="Rechercher une ville, code postal ou adresse..."
-          className="w-full px-5 py-3 pl-12 pr-24 text-earth-700 bg-white border-3 border-nature-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-nature-400 focus:border-nature-500 shadow-nature transition-all"
-        />
-        <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-          <svg
-            className="w-5 h-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-        </div>
-        <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
-          {isGeolocating ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-nature-500"></div>
-          ) : (
-            <button
-              type="button"
-              onClick={onUseMyLocation}
-              className="px-3 py-1.5 text-xs font-semibold text-nature-600 hover:text-nature-700 hover:bg-nature-50 rounded-xl transition-all"
-              title="Utiliser ma position"
+      {/* Champ de recherche */}
+      <form onSubmit={handleSearch} className="space-y-2">
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={displayValue}
+            onChange={handleInputChange}
+            onFocus={() => {
+              if (suggestions.length > 0 || searchTerm.trim().length >= 3) {
+                setShowSuggestions(true)
+                updateDropdownPosition()
+              }
+            }}
+            placeholder="Ville, code postal..."
+            className="w-full px-4 py-2.5 pl-10 pr-10 text-sm text-earth-700 bg-white border-2 border-nature-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-400 focus:border-nature-500 transition-all"
+          />
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+            <svg
+              className="w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              📍 Moi
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          {isLoading && (
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-nature-500"></div>
+            </div>
           )}
         </div>
-      </div>
+        
+        {/* Bouton géolocalisation */}
+        <button
+          type="button"
+          onClick={onUseMyLocation}
+          disabled={isGeolocating}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-nature-700 bg-nature-50 hover:bg-nature-100 border-2 border-nature-200 hover:border-nature-300 rounded-xl transition-all disabled:opacity-50"
+        >
+          {isGeolocating ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-nature-500"></div>
+              <span>Localisation...</span>
+            </>
+          ) : (
+            <>
+              <span>📍</span>
+              <span>Utiliser ma position</span>
+            </>
+          )}
+        </button>
+      </form>
 
       {error && (
         <div className="mt-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">
@@ -227,33 +295,42 @@ export function LocationSearch({
         </div>
       )}
 
-      {showSuggestions && suggestions.length > 0 && (
-        <div
-          ref={suggestionsRef}
-          className="absolute z-50 w-full mt-2 bg-white border-2 border-nature-200 rounded-2xl shadow-nature-lg overflow-hidden"
-        >
-          {isLoading && (
-            <div className="px-4 py-3 text-sm text-gray-500 text-center">
-              Recherche en cours...
-            </div>
-          )}
-          {suggestions.map((location, index) => (
-            <button
-              key={`${location.lat}-${location.lon}-${index}`}
-              type="button"
-              onClick={() => handleSelect(location)}
-              className="w-full text-left px-4 py-3 hover:bg-nature-50 transition-colors border-b border-nature-100 last:border-b-0 flex items-start gap-3"
-            >
-              <span className="text-xl flex-shrink-0 mt-0.5">
-                {getLocationIcon(location.type)}
-              </span>
-              <span className="flex-1 text-sm text-earth-700">
-                {location.display_name}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      {showSuggestions && suggestions.length > 0 && dropdownRect && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={suggestionsRef}
+            style={{
+              position: 'absolute',
+              top: dropdownRect.top,
+              left: dropdownRect.left,
+              width: dropdownRect.width,
+            }}
+            className="z-[2000] mt-1 bg-white border-2 border-nature-200 rounded-2xl shadow-nature-lg overflow-hidden"
+          >
+            {isLoading && (
+              <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                Recherche en cours...
+              </div>
+            )}
+            {suggestions.map((location, index) => (
+              <button
+                key={`${location.lat}-${location.lon}-${index}`}
+                type="button"
+                onClick={() => handleSelect(location)}
+                className="w-full text-left px-4 py-3 hover:bg-nature-50 transition-colors border-b border-nature-100 last:border-b-0 flex items-start gap-3"
+              >
+                <span className="text-xl flex-shrink-0 mt-0.5">
+                  {getLocationIcon(location.type)}
+                </span>
+                <span className="flex-1 text-sm text-earth-700">
+                  {location.display_name}
+                </span>
+              </button>
+            ))}
+          </div>,
+          document.body
+        )
+      }
 
       {currentLocation && !showSuggestions && (
         <div className="mt-2 text-xs text-nature-600 flex items-center gap-2">

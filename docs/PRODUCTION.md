@@ -29,6 +29,10 @@ ALLOWED_HOSTS=votre-domaine.com,www.votre-domaine.com
 
 # API URL (pour le frontend)
 API_URL=https://votre-domaine.com/api
+
+# Ports (plage autorisée : 3500-3600)
+NGINX_HTTP_PORT=3500
+# NGINX_HTTPS_PORT=3501
 ```
 
 **⚠️ IMPORTANT** : Ne commitez jamais le fichier `.env` dans Git !
@@ -84,9 +88,11 @@ python manage.py collectstatic --noinput
 
 ### 3. Vérifier le Déploiement
 
-- Frontend : `http://votre-domaine.com` (ou `http://localhost` si pas de domaine)
-- Backend API : `http://votre-domaine.com/api/`
-- Admin Django : `http://votre-domaine.com/admin/`
+> **Note** : Les services utilisent par défaut le port 3500 (configurable via `NGINX_HTTP_PORT` dans `.env`).
+
+- Frontend : `http://votre-domaine.com:3500` (ou `http://localhost:3500` si pas de domaine)
+- Backend API : `http://votre-domaine.com:3500/api/`
+- Admin Django : `http://votre-domaine.com:3500/admin/`
 
 ## 🔒 Sécurité
 

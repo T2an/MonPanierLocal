@@ -17,40 +17,24 @@ export function Navbar() {
             </Link>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/about"
-              className="text-earth-700 hover:text-nature-600 px-4 py-2 rounded-2xl text-sm font-medium transition-all hover:bg-nature-50"
-            >
-              À propos
-            </Link>
-            <Link
-              href="/contact"
-              className="text-earth-700 hover:text-nature-600 px-4 py-2 rounded-2xl text-sm font-medium transition-all hover:bg-nature-50"
-            >
-              Contact
-            </Link>
             {user ? (
               <>
                 <Link
                   href="/profile"
-                  className="text-earth-700 hover:text-nature-600 px-4 py-2 rounded-2xl text-sm font-medium transition-all hover:bg-nature-50"
+                  className="bg-nature-100 hover:bg-nature-200 text-nature-800 px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all border-2 border-nature-300 flex items-center gap-2"
                 >
-                  Mon Profil
+                  <span>👤</span>
+                  <span>Mon Profil</span>
                 </Link>
                 {user.is_producer && (
                   <Link
                     href="/producer/edit"
-                    className="text-earth-700 hover:text-nature-600 px-4 py-2 rounded-2xl text-sm font-medium transition-all hover:bg-nature-50"
+                    className="bg-nature-500 hover:bg-nature-600 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all shadow-nature hover:shadow-nature-lg flex items-center gap-2"
                   >
-                    Mon Exploitation
+                    <span>🌾</span>
+                    <span>Mon Exploitation</span>
                   </Link>
                 )}
-                <button
-                  onClick={logout}
-                  className="bg-earth-100 hover:bg-earth-200 text-earth-800 px-5 py-2 rounded-2xl text-sm font-medium transition-all border-2 border-earth-300"
-                >
-                  Déconnexion
-                </button>
               </>
             ) : (
               <>

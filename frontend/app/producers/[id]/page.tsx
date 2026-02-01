@@ -7,6 +7,8 @@ import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
 import { getImageUrl } from '@/lib/imageUrl'
 import { ProductCard } from '@/components/ProductCard'
+import { OpeningStatusBadge } from '@/components/OpeningStatusBadge'
+import { WeeklySchedule, SingleModeSchedule } from '@/components/WeeklySchedule'
 import type { ProducerProfile, SaleMode } from '@/types'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -210,6 +212,14 @@ export default function ProducerDetailPage() {
             </div>
           )}
 
+          {/* Semainier global des disponibilités */}
+          {saleModes.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-4">📅 Disponibilités de la semaine</h2>
+              <WeeklySchedule saleModes={saleModes} />
+            </div>
+          )}
+
           {/* Modes de vente */}
           {saleModes.length > 0 && (
             <div className="mb-6">
@@ -229,10 +239,19 @@ export default function ProducerDetailPage() {
                         {mode.mode_type === 'market' && '🏪'}
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-nature-800 mb-1">{mode.title}</h3>
-                        <p className="text-sm text-nature-600 font-medium mb-2">
-                          {mode.mode_type_display || mode.mode_type}
-                        </p>
+                        <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                          <div>
+                            <h3 className="text-lg font-bold text-nature-800">{mode.title}</h3>
+                            <p className="text-sm text-nature-600 font-medium">
+                              {mode.mode_type_display || mode.mode_type}
+                            </p>
+                          </div>
+                          {/* Badge de statut d'ouverture */}
+                          <OpeningStatusBadge 
+                            openingHours={mode.opening_hours} 
+                            is24_7={mode.is_24_7}
+                          />
+                        </div>
                         {mode.instructions && (
                           <p className="text-gray-700 mb-3 bg-white p-3 rounded-xl border-2 border-nature-200">
                             <strong className="text-nature-700">Consigne :</strong> {mode.instructions}
@@ -290,33 +309,16 @@ export default function ProducerDetailPage() {
                         </div>
                       )}
 
-                      {/* Horaires spécifiques */}
-                      {mode.opening_hours && mode.opening_hours.length > 0 && (
+                      {/* Semainier visuel */}
+                      {(mode.opening_hours && mode.opening_hours.length > 0) || mode.is_24_7 ? (
                         <div className="mt-3 bg-white p-4 rounded-xl border-2 border-nature-200">
-                          <p className="text-sm font-semibold text-nature-700 mb-2">Horaires :</p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
-                            {mode.opening_hours.map((hours) => {
-                              const dayName = DAYS_OF_WEEK.find((d) => d.value === hours.day_of_week)?.label
-                              if (hours.is_closed) {
-                                return (
-                                  <div key={hours.day_of_week} className="flex items-center gap-2">
-                                    <span className="font-medium w-24">{dayName}</span>
-                                    <span className="text-gray-500">Fermé</span>
-                                  </div>
-                                )
-                              }
-                              return (
-                                <div key={hours.day_of_week} className="flex items-center gap-2">
-                                  <span className="font-medium w-24">{dayName}</span>
-                                  <span>
-                                    {hours.opening_time} - {hours.closing_time}
-                                  </span>
-                                </div>
-                              )
-                            })}
-                          </div>
+                          <p className="text-sm font-semibold text-nature-700 mb-3">Disponibilités :</p>
+                          <SingleModeSchedule 
+                            openingHours={mode.opening_hours} 
+                            is24_7={mode.is_24_7} 
+                          />
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 ))}

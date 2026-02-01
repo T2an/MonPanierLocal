@@ -166,8 +166,15 @@ export function ProducerForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Position sur la carte (cliquez sur la carte pour placer le marqueur) *
+          Position sur la carte *
         </label>
+        {(!formData.latitude || !formData.longitude) && (
+          <div className="mb-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-2xl">
+            <p className="text-amber-800 text-sm font-medium">
+              ⚠️ Position non définie - Cliquez sur la carte ou utilisez le bouton ci-dessous
+            </p>
+          </div>
+        )}
         <div className="flex gap-2 mb-2">
           <button
             type="button"
@@ -177,7 +184,7 @@ export function ProducerForm({
             📍 Utiliser ma position
           </button>
         </div>
-        <div className="h-64 rounded-2xl overflow-hidden border-4 border-nature-300 shadow-nature">
+        <div className={`h-64 rounded-2xl overflow-hidden border-4 shadow-nature ${formData.latitude && formData.longitude ? 'border-nature-300' : 'border-amber-400'}`}>
           <MapContainer
             center={mapCenter}
             zoom={mapZoom}
@@ -193,8 +200,12 @@ export function ProducerForm({
             )}
           </MapContainer>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
-          Latitude: {formData.latitude || 'Non définie'}, Longitude: {formData.longitude || 'Non définie'}
+        <p className={`mt-2 text-sm ${formData.latitude && formData.longitude ? 'text-nature-600' : 'text-amber-600'}`}>
+          {formData.latitude && formData.longitude ? (
+            <>✓ Position définie : {parseFloat(formData.latitude).toFixed(5)}, {parseFloat(formData.longitude).toFixed(5)}</>
+          ) : (
+            <>Cliquez sur la carte pour définir l'emplacement de votre exploitation</>
+          )}
         </p>
       </div>
     </div>

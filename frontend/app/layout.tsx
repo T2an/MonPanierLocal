@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/hooks/useAuth'
 import { Navbar } from '@/components/Navbar'
+import { Footer } from '@/components/Footer'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LeafletConfig } from '@/components/LeafletConfig'
 
@@ -20,14 +21,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={inter.className}>
+      <body className={`${inter.className} flex flex-col min-h-screen`}>
         <LeafletConfig />
         <ErrorBoundary>
           <AuthProvider>
             <Navbar />
-            <main className="min-h-screen">
+            <main className="flex-1">
               {children}
             </main>
+            <Footer />
           </AuthProvider>
         </ErrorBoundary>
       </body>

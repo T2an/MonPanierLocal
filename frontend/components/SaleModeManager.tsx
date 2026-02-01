@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { apiClient } from '@/lib/api'
+import { OpeningStatusBadge } from '@/components/OpeningStatusBadge'
+import { SingleModeSchedule } from '@/components/WeeklySchedule'
 import type { SaleMode, OpeningHours, ProducerProfile } from '@/types'
 
 interface SaleModeManagerProps {
@@ -426,8 +428,17 @@ export function SaleModeManager({ producer, onRefresh }: SaleModeManagerProps) {
             <>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{mode.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{mode.mode_type_display || mode.mode_type}</p>
+                  <div className="flex flex-wrap items-start gap-3 mb-2">
+                    <div>
+                      <h3 className="font-semibold text-lg">{mode.title}</h3>
+                      <p className="text-sm text-gray-600">{mode.mode_type_display || mode.mode_type}</p>
+                    </div>
+                    {/* Badge de statut d'ouverture en temps réel */}
+                    <OpeningStatusBadge 
+                      openingHours={mode.opening_hours} 
+                      is24_7={mode.is_24_7}
+                    />
+                  </div>
                   <p className="text-sm text-gray-700 mt-2">
                     <strong>Consigne:</strong> {mode.instructions}
                   </p>
@@ -437,30 +448,19 @@ export function SaleModeManager({ producer, onRefresh }: SaleModeManagerProps) {
                   {mode.website_url && (
                     <p className="text-sm text-gray-600 mt-1">🌐 <a href={mode.website_url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">{mode.website_url}</a></p>
                   )}
-                  {mode.is_24_7 && (
-                    <p className="text-sm text-gray-600 mt-1">🕐 Disponible 24/7</p>
-                  )}
                   {mode.market_info && (
                     <p className="text-sm text-gray-600 mt-1">{mode.market_info}</p>
                   )}
-                  {mode.opening_hours && mode.opening_hours.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-sm font-medium text-gray-700">Horaires:</p>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {mode.opening_hours.map(hours => {
-                          const dayName = DAYS_OF_WEEK.find(d => d.value === hours.day_of_week)?.label
-                          if (hours.is_closed) {
-                            return <div key={hours.day_of_week}>{dayName}: Fermé</div>
-                          }
-                          return (
-                            <div key={hours.day_of_week}>
-                              {dayName}: {hours.opening_time} - {hours.closing_time}
-                            </div>
-                          )
-                        })}
-                      </div>
+                  {/* Semainier visuel */}
+                  {(mode.opening_hours && mode.opening_hours.length > 0) || mode.is_24_7 ? (
+                    <div className="mt-3 p-3 bg-white rounded-xl border-2 border-nature-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Disponibilités :</p>
+                      <SingleModeSchedule 
+                        openingHours={mode.opening_hours} 
+                        is24_7={mode.is_24_7} 
+                      />
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button

@@ -28,13 +28,30 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 @permission_classes([AllowAny])
 def register(request):
     """Endpoint d'inscription."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Log les données reçues pour debugging
+    logger.info(f"Registration attempt - Data received: {request.data}")
+    
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
-        user = serializer.save()
-        return Response({
-            'user': UserSerializer(user).data,
-            'message': 'Inscription réussie'
-        }, status=status.HTTP_201_CREATED)
+        try:
+            user = serializer.save()
+            logger.info(f"User registered successfully: {user.email}")
+            return Response({
+                'user': UserSerializer(user).data,
+                'message': 'Inscription réussie'
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Error creating user: {e}", exc_info=True)
+            return Response(
+                {'error': f'Erreur lors de la création du compte: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    # Log les erreurs de validation
+    logger.warning(f"Registration validation failed: {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

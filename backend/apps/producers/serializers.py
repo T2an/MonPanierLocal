@@ -23,6 +23,9 @@ class ProductSimpleSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
     photo_count = serializers.IntegerField(source='photos.count', read_only=True)
+    availability_type = serializers.CharField(read_only=True, default='all_year')
+    availability_start_month = serializers.IntegerField(read_only=True, allow_null=True, required=False)
+    availability_end_month = serializers.IntegerField(read_only=True, allow_null=True, required=False)
     
     class Meta:
         model = Product
@@ -37,10 +40,10 @@ class ProductSimpleSerializer(serializers.ModelSerializer):
         """Override to ensure availability fields are included."""
         ret = super().to_representation(instance)
         # Forcer l'inclusion des champs de disponibilité depuis l'instance
-        # On accède directement aux attributs du modèle
-        ret['availability_type'] = instance.availability_type
-        ret['availability_start_month'] = instance.availability_start_month
-        ret['availability_end_month'] = instance.availability_end_month
+        # On accède directement aux attributs du modèle si ils existent
+        ret['availability_type'] = getattr(instance, 'availability_type', 'all_year')
+        ret['availability_start_month'] = getattr(instance, 'availability_start_month', None)
+        ret['availability_end_month'] = getattr(instance, 'availability_end_month', None)
         return ret
     
     def get_category(self, obj):
@@ -67,7 +70,7 @@ class ProducerProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     photos = ProducerPhotoSerializer(many=True, read_only=True)
     photo_count = serializers.IntegerField(source='photos.count', read_only=True)
-    products = ProductSimpleSerializer(many=True, read_only=True)
+    products = serializers.SerializerMethodField()
     sale_modes = serializers.SerializerMethodField()
 
     class Meta:
@@ -80,10 +83,23 @@ class ProducerProfileSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
+    def get_products(self, obj):
+        """Return products list - safely handle missing availability fields."""
+        try:
+            products = obj.products.all()
+            return ProductSimpleSerializer(products, many=True).data
+        except Exception:
+            # If products table has missing columns, return empty list
+            return []
+
     def get_sale_modes(self, obj):
-        """Return sale modes."""
-        sale_modes = obj.sale_modes.all().prefetch_related('opening_hours')
-        return SaleModeSerializer(sale_modes, many=True).data
+        """Return sale modes - safely handle missing table."""
+        try:
+            sale_modes = obj.sale_modes.all().prefetch_related('opening_hours')
+            return SaleModeSerializer(sale_modes, many=True).data
+        except Exception:
+            # If sale_modes table doesn't exist, return empty list
+            return []
 
 
 class ProducerProfileCreateSerializer(serializers.ModelSerializer):

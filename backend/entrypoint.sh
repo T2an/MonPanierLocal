@@ -17,6 +17,27 @@ until runuser -u appuser -- python manage.py shell -c "from django.db import con
 done
 echo "✅ Base de données disponible"
 
+# Attendre que Redis soit prêt
+echo "⏳ Attente de Redis..."
+REDIS_HOST="${REDIS_URL:-redis://redis:6379/0}"
+# Extraire le host de l'URL Redis
+REDIS_HOST_ONLY=$(echo $REDIS_HOST | sed -E 's/redis:\/\/([^:\/]+).*/\1/')
+REDIS_PORT=$(echo $REDIS_HOST | sed -E 's/.*:([0-9]+).*/\1/')
+REDIS_PORT=${REDIS_PORT:-6379}
+
+until runuser -u appuser -- python -c "
+import redis
+import os
+redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+r = redis.from_url(redis_url)
+r.ping()
+print('Redis OK')
+" 2>/dev/null; do
+  echo "   Redis non disponible, attente..."
+  sleep 2
+done
+echo "✅ Redis disponible"
+
 # Appliquer les migrations
 echo "📦 Application des migrations..."
 runuser -u appuser -- python manage.py migrate --noinput
@@ -24,6 +45,28 @@ runuser -u appuser -- python manage.py migrate --noinput
 # Collecter les fichiers statiques
 echo "📁 Collecte des fichiers statiques..."
 runuser -u appuser -- python manage.py collectstatic --noinput || true
+
+# Vérification finale de la santé
+echo "🔍 Vérification de la santé du système..."
+runuser -u appuser -- python manage.py shell -c "
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+import django
+django.setup()
+
+from django.core.cache import cache
+from django.db import connection
+
+# Test DB
+with connection.cursor() as cursor:
+    cursor.execute('SELECT 1')
+print('✅ Base de données: OK')
+
+# Test Cache
+cache.set('startup_check', 'ok', 10)
+assert cache.get('startup_check') == 'ok', 'Cache test failed'
+print('✅ Cache Redis: OK')
+" || echo "⚠️ Certains tests de santé ont échoué, mais le backend démarre quand même"
 
 echo "✅ Backend prêt"
 

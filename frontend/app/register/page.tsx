@@ -45,8 +45,44 @@ export default function RegisterPage() {
       if (err instanceof Error) {
         errorMessage = err.message
       } else if (typeof err === 'object' && err !== null && 'response' in err) {
-        const axiosError = err as { response?: { data?: { message?: string; error?: string } } }
-        errorMessage = axiosError.response?.data?.message || axiosError.response?.data?.error || errorMessage
+        const axiosError = err as { 
+          response?: { 
+            data?: { 
+              message?: string
+              error?: string
+              email?: string | string[]
+              username?: string | string[]
+              password?: string | string[]
+              password_confirm?: string | string[]
+              [key: string]: any
+            } 
+          } 
+        }
+        
+        const errorData = axiosError.response?.data
+        if (errorData) {
+          // Gérer les erreurs de validation Django REST Framework
+          const validationErrors: string[] = []
+          
+          if (errorData.email) {
+            validationErrors.push(`Email: ${Array.isArray(errorData.email) ? errorData.email[0] : errorData.email}`)
+          }
+          if (errorData.username) {
+            validationErrors.push(`Nom d'utilisateur: ${Array.isArray(errorData.username) ? errorData.username[0] : errorData.username}`)
+          }
+          if (errorData.password) {
+            validationErrors.push(`Mot de passe: ${Array.isArray(errorData.password) ? errorData.password[0] : errorData.password}`)
+          }
+          if (errorData.password_confirm) {
+            validationErrors.push(`Confirmation: ${Array.isArray(errorData.password_confirm) ? errorData.password_confirm[0] : errorData.password_confirm}`)
+          }
+          
+          if (validationErrors.length > 0) {
+            errorMessage = validationErrors.join('. ')
+          } else {
+            errorMessage = errorData.message || errorData.error || errorMessage
+          }
+        }
       }
       setError(errorMessage)
     } finally {

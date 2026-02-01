@@ -7,7 +7,6 @@ import { SearchBar } from '@/components/SearchBar'
 import { FilterSidebar } from '@/components/FilterSidebar'
 import { ViewToggle } from '@/components/ViewToggle'
 import { ProducerList } from '@/components/ProducerList'
-import { DistanceFilter } from '@/components/DistanceFilter'
 import { LocationSearch } from '@/components/LocationSearch'
 import { apiClient } from '@/lib/api'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
@@ -20,24 +19,27 @@ const MapView = dynamic(() => import('@/components/MapView').then(mod => ({ defa
 
 function HomeContent() {
   const searchParams = useSearchParams()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([])
   const [view, setView] = useState<'map' | 'list'>('map')
   const [producers, setProducers] = useState<ProducerProfile[]>([])
   const [loading, setLoading] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; name?: string } | null>(null)
-  const [distanceFilter, setDistanceFilter] = useState<number | null>(null)
+  const [selectedProducer, setSelectedProducer] = useState<ProducerProfile | null>(null)
   const [distances, setDistances] = useState<number[]>([])
   const [isGeolocating, setIsGeolocating] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Rayon fixe de 20km pour la recherche par ville
+  const LOCATION_SEARCH_RADIUS = 20
 
   useEffect(() => {
-    // Lire les paramètres de l'URL
-    const category = searchParams.get('category') || ''
-    const search = searchParams.get('q') || ''
-    setCategoryFilter(category)
-    setSearchQuery(search)
-
-    // Ne pas géolocaliser automatiquement - l'utilisateur doit le demander
+    // Lire les paramètres de l'URL (supporte maintenant plusieurs catégories)
+    const categories = searchParams.get('categories')
+    if (categories) {
+      setCategoryFilters(categories.split(',').filter(Boolean))
+    } else {
+      setCategoryFilters([])
+    }
   }, [searchParams])
 
   const loadProducers = useCallback(async () => {
@@ -45,12 +47,12 @@ function HomeContent() {
     try {
       let data
       if (userLocation) {
-        // Utiliser la recherche par localisation
-        const radius = distanceFilter || 50 // 50km par défaut si pas de filtre
+        // Recherche par ville/adresse : 20km fixe autour de l'adresse
         data = await apiClient.getNearbyProducers(
           userLocation.lat,
           userLocation.lng,
-          radius
+          LOCATION_SEARCH_RADIUS,
+          categoryFilters.length > 0 ? categoryFilters : undefined
         )
         // Stocker les distances si disponibles
         if (data.distances) {
@@ -58,28 +60,35 @@ function HomeContent() {
         } else {
           setDistances([])
         }
+      } else if (selectedProducer) {
+        // Recherche par nom : afficher uniquement le producteur sélectionné
+        setProducers([selectedProducer])
+        setDistances([])
+        setLoading(false)
+        return
       } else {
-        // Recherche normale sans localisation
-        const params: Record<string, string> = {}
-        if (categoryFilter) params.category = categoryFilter
-        if (searchQuery) params.search = searchQuery
-        data = await apiClient.getProducers(params)
+        // Aucune recherche active : afficher tous les producteurs
+        data = await apiClient.getProducers({
+          categories: categoryFilters.length > 0 ? categoryFilters : undefined
+        })
         setDistances([])
       }
-      setProducers(data.results || data)
+      
+      let allProducers = data.results || data
+      setProducers(allProducers)
     } catch (err: unknown) {
       setProducers([])
       setDistances([])
     } finally {
       setLoading(false)
     }
-  }, [distanceFilter, userLocation, categoryFilter, searchQuery])
+  }, [userLocation, selectedProducer, categoryFilters])
 
   useEffect(() => {
     if (view === 'list') {
       loadProducers()
     }
-  }, [view, loadProducers])
+  }, [view, selectedProducer, userLocation, categoryFilters, loadProducers])
 
   const handleUseMyLocation = () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -103,24 +112,50 @@ function HomeContent() {
 
   const handleLocationSelect = (location: { lat: number; lng: number; name: string }) => {
     setUserLocation(location)
+    // Effacer la recherche par nom quand on sélectionne une ville
+    setSelectedProducer(null)
   }
 
   const handleClearLocation = () => {
     setUserLocation(null)
-    setDistanceFilter(null)
     setDistances([])
+  }
+
+  const handleProducerSelect = (producer: ProducerProfile | null) => {
+    setSelectedProducer(producer)
+    // Effacer la recherche par ville quand on sélectionne un producteur
+    if (producer) {
+      setUserLocation(null)
+      setDistances([])
+    }
   }
 
   return (
     <div className="relative h-screen w-full">
       {/* Barre de filtres verticale à gauche */}
-      <FilterSidebar />
-      
-      {/* Contenu principal avec marge pour la barre latérale */}
-      <div className="ml-72 h-screen relative">
-        <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-3 max-w-md">
-          <div className="flex flex-col gap-2">
-            <SearchBar />
+      <FilterSidebar 
+        isCollapsed={sidebarCollapsed} 
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+      >
+        <div className="flex flex-col gap-5">
+          {/* Recherche par nom */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold text-nature-700 uppercase tracking-wide flex items-center gap-2">
+              <span>👤</span>
+              <span>Par nom de producteur</span>
+            </h3>
+            <SearchBar onProducerSelect={handleProducerSelect} />
+          </div>
+
+          {/* Séparateur */}
+          <div className="border-t-2 border-nature-200 border-dashed" />
+
+          {/* Recherche par adresse */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold text-nature-700 uppercase tracking-wide flex items-center gap-2">
+              <span>📍</span>
+              <span>Par adresse</span>
+            </h3>
             <LocationSearch
               onLocationSelect={handleLocationSelect}
               currentLocation={userLocation}
@@ -130,32 +165,31 @@ function HomeContent() {
             {userLocation && (
               <button
                 onClick={handleClearLocation}
-                className="text-xs text-nature-600 hover:text-nature-700 font-medium px-3 py-1.5 bg-nature-50 hover:bg-nature-100 rounded-xl border border-nature-200 transition-all self-start"
+                className="text-xs text-nature-600 hover:text-nature-700 font-medium px-3 py-1.5 bg-nature-50 hover:bg-nature-100 rounded-xl border border-nature-200 transition-all"
               >
-                ✕ Effacer la localisation
+                ✕ Effacer
               </button>
             )}
-            <ViewToggle view={view} onViewChange={setView} />
           </div>
-          {view === 'list' && userLocation && (
-            <DistanceFilter
-              onDistanceChange={setDistanceFilter}
-              currentDistance={distanceFilter}
-              userLocation={userLocation}
-            />
-          )}
+        </div>
+      </FilterSidebar>
+      
+      {/* Contenu principal avec marge pour la barre latérale */}
+      <div className={`h-screen relative transition-all duration-300 ${sidebarCollapsed ? 'ml-0' : 'ml-96'}`}>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000]">
+          <ViewToggle view={view} onViewChange={setView} />
         </div>
         {view === 'map' ? (
           <div className="h-full w-full">
             <MapView
-              searchQuery={searchQuery}
-              categoryFilter={categoryFilter}
-              distanceFilter={distanceFilter}
+              categoryFilters={categoryFilters}
               userLocation={userLocation}
+              selectedProducer={selectedProducer}
+              locationSearchRadius={LOCATION_SEARCH_RADIUS}
             />
           </div>
         ) : (
-          <div className="h-screen pt-32 overflow-y-auto">
+          <div className="h-screen pt-6 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <LoadingSpinner size="lg" />

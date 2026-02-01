@@ -23,6 +23,21 @@ services:
       - monpanierlocal_network
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: monpanierlocal_redis_prod
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - monpanierlocal_network
+    restart: unless-stopped
+
   backend:
     build:
       context: ../backend
@@ -43,8 +58,12 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_TTL=${CACHE_TTL:-300}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - monpanierlocal_network
@@ -77,9 +96,9 @@ services:
     container_name: monpanierlocal_nginx_prod
     env_file: ../.env
     ports:
-      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTP_PORT:-3500}:80"
       # HTTPS port (uncomment in .env and here if SSL is configured)
-      # - "${NGINX_HTTPS_PORT:-443}:443"
+      # - "${NGINX_HTTPS_PORT:-3501}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - backend_static_prod:/static:ro
@@ -94,6 +113,7 @@ services:
 
 volumes:
   postgres_data_prod:
+  redis_data_prod:
   backend_media_prod:
   backend_static_prod:
   backend_logs_prod:

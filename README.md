@@ -33,7 +33,7 @@ python3 -c "from django.core.management.utils import get_random_secret_key; prin
 ./start.sh
 ```
 
-L'application sera accessible sur `http://localhost` (port configurable via `NGINX_HTTP_PORT` dans `.env`).
+L'application sera accessible sur `http://localhost:3500` (port configurable via `NGINX_HTTP_PORT` dans `.env`, plage autorisée : 3500-3600).
 
 ### Commandes utiles
 

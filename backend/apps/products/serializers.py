@@ -74,9 +74,10 @@ class ProductCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Les mois de début et de fin sont requis pour une période personnalisée."
                 )
-            if start_month > end_month:
+            # Note: start_month > end_month est valide (ex: novembre à avril = période hivernale)
+            if start_month < 1 or start_month > 12 or end_month < 1 or end_month > 12:
                 raise serializers.ValidationError(
-                    "Le mois de début doit être antérieur ou égal au mois de fin."
+                    "Les mois doivent être compris entre 1 et 12."
                 )
         return data
 
@@ -118,9 +119,10 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Les mois de début et de fin sont requis pour une période personnalisée."
                 )
-            if start_month > end_month:
+            # Note: start_month > end_month est valide (ex: novembre à avril = période hivernale)
+            if start_month < 1 or start_month > 12 or end_month < 1 or end_month > 12:
                 raise serializers.ValidationError(
-                    "Le mois de début doit être antérieur ou égal au mois de fin."
+                    "Les mois doivent être compris entre 1 et 12."
                 )
         elif availability_type == Product.AVAILABILITY_ALL_YEAR:
             # Si on passe à "tout l'année", mettre les mois à None
