@@ -253,12 +253,12 @@ export function MapView({ categoryFilters = [], userLocation, selectedProducer, 
       
       if (userLocation) {
         // Recherche par ville : 20km fixe autour de l'adresse
-        data = await apiClient.getNearbyProducers(
-          userLocation.lat,
-          userLocation.lng,
-          locationSearchRadius,
-          categoryFilters.length > 0 ? categoryFilters : undefined
-        )
+        data = await apiClient.getNearbyProducers({
+          latitude: userLocation.lat,
+          longitude: userLocation.lng,
+          radius_km: locationSearchRadius,
+          categories: categoryFilters.length > 0 ? categoryFilters : undefined,
+        })
       } else if (selectedProducer) {
         // Recherche par nom : afficher uniquement le producteur sélectionné
         setProducers([selectedProducer])

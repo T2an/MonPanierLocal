@@ -93,7 +93,8 @@ export default function ProducerEditPage() {
   const loadProducer = async () => {
     try {
       const producers = await apiClient.getProducers()
-      const userProducer = producers.results.find((p) => p.user.id === user?.id)
+      const list = producers.results ?? (Array.isArray(producers) ? producers : [])
+      const userProducer = list.find((p: ProducerProfile) => p.user.id === user?.id)
       if (userProducer) {
         setProducer(userProducer)
         const newFormData = {

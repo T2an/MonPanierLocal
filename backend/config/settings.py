@@ -120,70 +120,89 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database configuration
-# https://docs.djangoproject.com/en/stable/ref/settings/#databases
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='monpanierlocal'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='postgres'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
-        'OPTIONS': {
-            'connect_timeout': 10,
-            # Performance optimizations
-            'options': '-c statement_timeout=30000',  # 30 seconds
-        },
-        # Connection pooling settings
-        'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=600, cast=int),  # 10 minutes
+# En développement local sans Docker: USE_LOCAL_DEV=True utilise SQLite
+USE_LOCAL_DEV = config('USE_LOCAL_DEV', default='False', cast=bool)
+
+if USE_LOCAL_DEV:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='monpanierlocal'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default='postgres'),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+                'options': '-c statement_timeout=30000',
+            },
+            'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=600, cast=int),
+        }
+    }
 
 # Redis Cache Configuration
+# En développement local: DummyCache (pas de Redis requis)
 REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
-CACHE_TTL = config('CACHE_TTL', default=300, cast=int)  # 5 minutes par défaut
+CACHE_TTL = config('CACHE_TTL', default=300, cast=int)
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_KWARGS': {
-                'max_connections': 50,
-                'retry_on_timeout': True,
+if USE_LOCAL_DEV:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        },
+        'sessions': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        },
+        'ratelimit': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        },
+    }
+    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 50,
+                    'retry_on_timeout': True,
+                },
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
             },
-            'SOCKET_CONNECT_TIMEOUT': 5,
-            'SOCKET_TIMEOUT': 5,
+            'KEY_PREFIX': 'mpl',
+            'TIMEOUT': CACHE_TTL,
         },
-        'KEY_PREFIX': 'mpl',  # MonPanierLocal
-        'TIMEOUT': CACHE_TTL,
-    },
-    # Cache séparé pour les sessions (plus longue durée)
-    'sessions': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL.replace('/0', '/1') if '/0' in REDIS_URL else REDIS_URL + '/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        'sessions': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL.replace('/0', '/1') if '/0' in REDIS_URL else REDIS_URL + '/1',
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'mpl_session',
+            'TIMEOUT': 86400,
         },
-        'KEY_PREFIX': 'mpl_session',
-        'TIMEOUT': 86400,  # 24 heures
-    },
-    # Cache séparé pour le rate limiting
-    'ratelimit': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL.replace('/0', '/2') if '/0' in REDIS_URL else REDIS_URL + '/2',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        'ratelimit': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL.replace('/0', '/2') if '/0' in REDIS_URL else REDIS_URL + '/2',
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'mpl_rl',
+            'TIMEOUT': 3600,
         },
-        'KEY_PREFIX': 'mpl_rl',
-        'TIMEOUT': 3600,  # 1 heure
-    },
-}
-
-# Utiliser Redis pour les sessions Django
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_CACHE_ALIAS = 'sessions'
+    }
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+    SESSION_CACHE_ALIAS = 'sessions'
 
 # Cache keys pour les différentes ressources
 CACHE_KEYS = {

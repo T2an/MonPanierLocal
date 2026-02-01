@@ -48,12 +48,12 @@ function HomeContent() {
       let data
       if (userLocation) {
         // Recherche par ville/adresse : 20km fixe autour de l'adresse
-        data = await apiClient.getNearbyProducers(
-          userLocation.lat,
-          userLocation.lng,
-          LOCATION_SEARCH_RADIUS,
-          categoryFilters.length > 0 ? categoryFilters : undefined
-        )
+        data = await apiClient.getNearbyProducers({
+          latitude: userLocation.lat,
+          longitude: userLocation.lng,
+          radius_km: LOCATION_SEARCH_RADIUS,
+          categories: categoryFilters.length > 0 ? categoryFilters : undefined,
+        })
         // Stocker les distances si disponibles
         if (data.distances) {
           setDistances(data.distances)
