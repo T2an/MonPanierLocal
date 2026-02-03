@@ -114,3 +114,32 @@ def change_password(request):
 
     return Response({'message': 'Mot de passe modifié avec succès.'})
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_account(request):
+    """Supprimer le compte utilisateur et toutes les données associées."""
+    password = request.data.get('password')
+    if not password:
+        return Response(
+            {'error': 'Le mot de passe est requis pour confirmer la suppression.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    if not request.user.check_password(password):
+        return Response(
+            {'error': 'Mot de passe incorrect.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        user = request.user
+        user.delete()
+        return Response(
+            {'message': 'Compte supprimé avec succès.'},
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Erreur lors de la suppression: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+

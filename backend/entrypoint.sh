@@ -50,6 +50,7 @@ runuser -u appuser -- python manage.py collectstatic --noinput || true
 echo "🔍 Vérification de la santé du système..."
 runuser -u appuser -- python manage.py shell -c "
 import os
+import sys
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 import django
 django.setup()
@@ -58,15 +59,23 @@ from django.core.cache import cache
 from django.db import connection
 
 # Test DB
-with connection.cursor() as cursor:
-    cursor.execute('SELECT 1')
-print('✅ Base de données: OK')
+try:
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT 1')
+    print('✅ Base de données: OK')
+except Exception as e:
+    print(f'❌ Base de données: {e}')
+    sys.exit(1)
 
-# Test Cache
-cache.set('startup_check', 'ok', 10)
-assert cache.get('startup_check') == 'ok', 'Cache test failed'
-print('✅ Cache Redis: OK')
-" || echo "⚠️ Certains tests de santé ont échoué, mais le backend démarre quand même"
+# Test Cache (non bloquant)
+try:
+    cache.set('startup_check', 'ok', 10)
+    if cache.get('startup_check') != 'ok':
+        raise AssertionError('Cache read failed')
+    print('✅ Cache Redis: OK')
+except Exception as e:
+    print(f'⚠️ Cache Redis: {e} (le backend démarre quand même)')
+" || echo "⚠️ Vérification de santé échouée, le backend démarre quand même"
 
 echo "✅ Backend prêt"
 

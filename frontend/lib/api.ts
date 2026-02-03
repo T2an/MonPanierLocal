@@ -12,42 +12,60 @@ const axiosInstance: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+/** Endpoints publics : on n'envoie jamais le token (évite 401, pas de logique de retry) */
+function isPublicEndpoint(config: { url?: string; method?: string }): boolean {
+  const u = (config.url ?? '').split('?')[0]
+  const m = (config.method ?? 'get').toLowerCase()
+  if (u.includes('/auth/login') || u.includes('/auth/register') || u.includes('/auth/token/refresh'))
+    return true
+  // GET producers/products : public pour liste, mais on envoie le token si dispo (cache backend)
+  if (m === 'get' && (u.includes('/producers/') || u.includes('/products/'))) return true
+  return false
+}
+
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = Cookies.get('access_token')
-    if (token) config.headers.Authorization = `Bearer ${token}`
+    // Toujours envoyer le token si present (sauf pour login/register/refresh)
+    const u = (config.url ?? '').split('?')[0]
+    const isAuth = u.includes('/auth/login') || u.includes('/auth/register') || u.includes('/auth/token/refresh')
+    if (!isAuth) {
+      const token = Cookies.get('access_token')
+      if (token) config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
-  (error) => Promise.reject(error)
+  (e) => Promise.reject(e)
 )
 
+/** Refresh token uniquement pour les requêtes authentifiées qui ont échoué */
 axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-      try {
-        const refreshToken = Cookies.get('refresh_token')
-        if (refreshToken) {
-          const res = await axios.post(`${API_URL}/auth/token/refresh/`, { refresh: refreshToken })
-          Cookies.set('access_token', res.data.access)
-          originalRequest.headers.Authorization = `Bearer ${res.data.access}`
-          return axiosInstance(originalRequest)
-        }
-      } catch {
-        Cookies.remove('access_token')
-        Cookies.remove('refresh_token')
-        if (typeof window !== 'undefined') window.location.href = '/login'
-      }
+  (r) => r,
+  async (err) => {
+    const req = err.config
+    if (err.response?.status !== 401 || req._retry || isPublicEndpoint(req))
+      return Promise.reject(err)
+    req._retry = true
+    const refresh = Cookies.get('refresh_token')
+    if (!refresh) {
+      Cookies.remove('access_token')
+      return Promise.reject(err)
     }
-    return Promise.reject(error)
+    try {
+      const { data } = await axios.post(`${API_URL}/auth/token/refresh/`, { refresh })
+      Cookies.set('access_token', data.access, { expires: 1 })
+      req.headers.Authorization = `Bearer ${data.access}`
+      return axiosInstance(req)
+    } catch {
+      Cookies.remove('access_token')
+      Cookies.remove('refresh_token')
+      return Promise.reject(err)
+    }
   }
 )
 
 export const apiClient = {
   login: (creds: { email: string; password: string }) =>
-    axiosInstance.post('/auth/login/', creds).then((r) => {
+    axiosInstance.post('/auth/login/', { email: creds.email, password: creds.password }).then((r) => {
       Cookies.set('access_token', r.data.access, { expires: 1 })
       Cookies.set('refresh_token', r.data.refresh, { expires: 7 })
       return r.data
@@ -61,6 +79,8 @@ export const apiClient = {
   updateMe: (data: unknown) => axiosInstance.patch('/auth/me/', data).then((r) => r.data),
   changePassword: (data: { old_password: string; new_password: string }) =>
     axiosInstance.post('/auth/change-password/', data).then((r) => r.data),
+  deleteAccount: (password: string) =>
+    axiosInstance.post('/auth/delete-account/', { password }).then((r) => r.data),
 
   getProducers: (params?: { search?: string; categories?: string[] }) => {
     const q: Record<string, string> = {}
@@ -92,7 +112,7 @@ export const apiClient = {
 
   uploadPhoto: (producerId: number, file: File) => {
     const fd = new FormData()
-    fd.append('photo', file)
+    fd.append('image_file', file)
     return axiosInstance.post(`/producers/${producerId}/photos/`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data)
@@ -116,7 +136,7 @@ export const apiClient = {
   deleteProduct: (productId: number) => axiosInstance.delete(`/products/${productId}/`).then((r) => r.data),
   uploadProductPhoto: (productId: number, file: File) => {
     const fd = new FormData()
-    fd.append('photo', file)
+    fd.append('image_file', file)
     return axiosInstance.post(`/products/${productId}/photos/`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data)

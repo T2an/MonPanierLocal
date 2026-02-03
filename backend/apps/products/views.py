@@ -80,7 +80,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsProductOwner])
-    def photos(self, request, pk=None):
+    def photos(self, request, pk=None, producer_id=None, **kwargs):
         """Ajouter une photo à un produit (maximum 5 photos)."""
         product = self.get_object()
         

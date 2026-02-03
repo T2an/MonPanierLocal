@@ -25,6 +25,9 @@ export default function ProfilePage() {
     new_password_confirm: '',
   })
   const [changingPassword, setChangingPassword] = useState(false)
+  const [showDeleteForm, setShowDeleteForm] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -64,6 +67,23 @@ export default function ProfilePage() {
       setError(errorMessage)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement votre compte ? Cette action est irréversible.')) return
+    setDeleting(true)
+    setError(null)
+    try {
+      await apiClient.deleteAccount(deletePassword)
+      logout()
+      router.push('/')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la suppression'
+      setError(errorMessage)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -270,6 +290,64 @@ export default function ProfilePage() {
             </svg>
             <span>Se déconnecter</span>
           </button>
+        </div>
+      </div>
+
+      {/* Section Supprimer mon compte */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="bg-red-50 rounded-lg p-6 border-2 border-red-200">
+          <h2 className="text-lg font-semibold text-red-800 mb-2">Zone de danger</h2>
+          <p className="text-sm text-red-700 mb-4">
+            La suppression de votre compte est définitive. Toutes vos données, {user.is_producer ? 'votre exploitation, vos produits et ' : ''}vos informations seront supprimés.
+          </p>
+          {!showDeleteForm ? (
+            <button
+              onClick={() => setShowDeleteForm(true)}
+              className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium"
+              id="delete-account-btn"
+            >
+              Supprimer mon compte
+            </button>
+          ) : (
+            <form onSubmit={handleDeleteAccount} className="space-y-4">
+              <div>
+                <label htmlFor="delete-password" className="block text-sm font-medium text-red-800 mb-1">
+                  Confirmez avec votre mot de passe *
+                </label>
+                <input
+                  id="delete-password"
+                  type="password"
+                  required
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Votre mot de passe"
+                  className="w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="flex gap-4">
+                <button
+                  type="submit"
+                  disabled={deleting || !deletePassword}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium disabled:opacity-50"
+                  id="confirm-delete-account-btn"
+                >
+                  {deleting ? 'Suppression...' : 'Confirmer la suppression'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteForm(false)
+                    setDeletePassword('')
+                    setError(null)
+                  }}
+                  className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>
